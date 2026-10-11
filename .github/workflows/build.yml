@@ -1,0 +1,121 @@
+# Lives in the PUBLIC repo JeremiePineau/terminallyllm-releases (copied from release-repo/ in the
+# private source repo). Public repos get free Actions minutes; Actions are turned OFF on the private repo.
+# Builds every platform from the private source and publishes installers + update feeds to the
+# moving `latest` release, which electron-updater reads anonymously.
+name: Build installers
+on:
+  repository_dispatch:
+    types: [build]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit, branch or tag in terminallyllm"
+        default: main
+      platforms:
+        description: "Installers to build"
+        type: choice
+        default: all
+        options: [all, windows, linux, macos]
+permissions:
+  contents: write
+env:
+  SOURCE_REPO: JeremiePineau/terminallyllm
+jobs:
+  plan:
+    # Minutes are free only while this repo is PUBLIC. If it is ever made private, nothing runs
+    # (every job below depends on this one), so it can never bill the account.
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+      ref: ${{ steps.pick.outputs.ref }}
+    steps:
+      - id: pick
+        shell: bash
+        run: |
+          want="${{ github.event.inputs.platforms || github.event.client_payload.platforms || 'all' }}"
+          ref="${{ github.event.inputs.ref || github.event.client_payload.ref || 'main' }}"
+          linux='{"os":"ubuntu-latest","artifact":"linux"}'
+          windows='{"os":"windows-latest","artifact":"windows"}'
+          macos='{"os":"macos-latest","artifact":"macos"}'
+          case "$want" in
+            windows) matrix="[$windows]" ;; linux) matrix="[$linux]" ;; macos) matrix="[$macos]" ;;
+            *) matrix="[$linux,$windows,$macos]" ;;
+          esac
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"; echo "ref=$ref" >> "$GITHUB_OUTPUT"
+  build:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: ${{ needs.plan.outputs.ref }}
+          token: ${{ secrets.SOURCE_TOKEN }}   # fine-grained PAT: read-only contents on terminallyllm
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # npm ci installs the node-pty prebuild for THIS runner's OS (@lydell/node-pty-<os>-<arch>).
+      - run: npm ci
+      - name: Unit tests
+        shell: bash
+        run: |
+          npx vitest run > test.log 2>&1 || { echo "::error::unit tests failed (output withheld, logs here are public)"; exit 1; }
+      - name: Compile (output withheld; tsc and vite print source and these logs are public)
+        shell: bash
+        run: |
+          if ! npm run build > compile.log 2>&1; then
+            echo "::error::compile failed on the public runner. Re-run the build locally to see the error."
+            exit 1
+          fi
+      - name: Package
+        run: npx electron-builder --publish never
+      - name: Publish to the moving `latest` release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # The workspace holds the PRIVATE source repo; gh would infer it and 404. Always explicit.
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          case "${{ matrix.artifact }}" in
+            windows) assets=(release/*.exe release/*.exe.blockmap release/latest.yml) ;;
+            macos)   assets=(release/*.dmg) ;;
+            linux)   assets=(release/*.AppImage release/*.deb release/latest-linux.yml) ;;
+          esac
+          for f in "${assets[@]}"; do [ -f "$f" ] || { echo "::error::missing $f (no update metadata means no updates)"; exit 1; }; done
+          gh release view latest -R "$THIS_REPO" >/dev/null 2>&1 || \
+            gh release create latest -R "$THIS_REPO" --title "Latest build" --notes "Installers for TerminallyLLM. This tag moves with every build."
+          gh release upload latest -R "$THIS_REPO" "${assets[@]}" --clobber
+          keep=$(printf '%s\n' "${assets[@]}" | xargs -n1 basename)
+          case "${{ matrix.artifact }}" in
+            windows) mine='\.(exe|exe\.blockmap)$|^latest\.yml$' ;; macos) mine='\.dmg$' ;; linux) mine='\.(AppImage|deb)$|^latest-linux\.yml$' ;;
+          esac
+          gh release view latest -R "$THIS_REPO" --json assets -q '.assets[].name' | while read -r have; do
+            [ -n "$have" ] || continue
+            if grep -qE "$mine" <<<"$have" && ! grep -qxF "$have" <<<"$keep"; then gh release delete-asset latest "$have" -R "$THIS_REPO" --yes || true; fi
+          done
+      # Fetch the feed anonymously, as the app does, and resolve the file it names.
+      - name: Verify the published feed resolves
+        if: matrix.artifact != 'macos'
+        shell: bash
+        run: |
+          set -uo pipefail
+          feed=$([ "${{ matrix.artifact }}" = windows ] && echo latest.yml || echo latest-linux.yml)
+          base="https://github.com/${{ github.repository }}/releases/download/latest"
+          curl -sfL "$base/$feed" -o "$feed" || { echo "::error::$feed is not anonymously readable"; exit 1; }
+          expected=$(node -p "require('./package.json').version")
+          published=$(grep -E '^version:' "$feed" | awk '{print $2}' | tr -d "'\"")
+          [ "$published" = "$expected" ] || { echo "::error::feed says $published, build is $expected"; exit 1; }
+          file=$(grep -E '^path:' "$feed" | sed -E "s/^path: *//; s/^['\"]//; s/['\"]$//")
+          code=$(curl -s -o /dev/null -w '%{http_code}' -L "$base/$file")
+          [ "$code" = "200" ] || { echo "::error::feed names '$file' but it returns HTTP $code"; exit 1; }
+          echo "feed verified: $expected -> $file"
