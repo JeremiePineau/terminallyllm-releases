@@ -57,7 +57,7 @@ jobs:
         with:
           repository: ${{ env.SOURCE_REPO }}
           ref: ${{ needs.plan.outputs.ref }}
-          token: ${{ secrets.SOURCE_TOKEN }}   # fine-grained PAT: read-only contents on terminallyllm
+          ssh-key: ${{ secrets.SOURCE_SSH_KEY }}   # a read-only deploy key on terminallyllm (nothing else)
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
