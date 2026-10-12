@@ -68,7 +68,12 @@ jobs:
       - name: Unit tests
         shell: bash
         run: |
-          npx vitest run > test.log 2>&1 || { echo "::error::unit tests failed (output withheld, logs here are public)"; exit 1; }
+          # Only the NAMES of failing tests are printed: vitest's diffs and code frames would put
+          # private source in these public logs.
+          if ! npx vitest run --reporter=json --outputFile=results.json > test.log 2>&1; then
+            node -e 'const r=require("./results.json");for(const f of r.testResults)for(const t of f.assertionResults)if(t.status==="failed")console.log("::error::failed: "+t.fullName)' || true
+            echo "::error::unit tests failed (details withheld, logs here are public)"; exit 1
+          fi
       - name: Compile (output withheld; tsc and vite print source and these logs are public)
         shell: bash
         run: |
