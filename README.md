@@ -14,4 +14,4 @@ Download the latest build from **[Releases](../../releases/latest)**:
 | macOS | `.dmg` (Apple Silicon and Intel) | download the new version (no in-place updates without a paid Developer ID) |
 
 The builds are not code-signed yet. Windows SmartScreen warns on first run ("More info → Run anyway").
-On macOS, open it once from System Settings → Privacy & Security → Open Anyway.
+On macOS, after dragging it to Applications run `xattr -dr com.apple.quarantine /Applications/TerminallyLLM.app` once (or open it, then System Settings → Privacy & Security → Open Anyway). A managed Mac may refuse unsigned apps entirely.
