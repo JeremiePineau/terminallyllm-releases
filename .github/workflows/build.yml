@@ -93,7 +93,8 @@ jobs:
           if [ "${{ matrix.artifact }}" = macos ]; then
             # The runner is Apple Silicon: smoke-test the arm64 app (the x64 one would need Rosetta).
             app=$(ls -d release/mac-arm64/TerminallyLLM.app 2>/dev/null || ls -d release/mac*/TerminallyLLM.app | head -1); bin="$app/Contents/MacOS/TerminallyLLM"
-            ( timeout 120 "$bin" --smoketest || true )
+            # macOS has no `timeout`; perl's alarm is the portable equivalent.
+            ( perl -e 'alarm shift; exec @ARGV' 120 "$bin" --smoketest || true )
           else
             sudo apt-get install -y -qq xvfb >/dev/null
             ( timeout 120 xvfb-run -a release/linux-unpacked/terminallyllm --smoketest --no-sandbox || true )
