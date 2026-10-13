@@ -83,6 +83,25 @@ jobs:
           fi
       - name: Package
         run: npx electron-builder --publish never
+      # The packaged app must start and run a shell on the runner's OS (macOS especially: nobody
+      # here owns a Mac). Linux needs a virtual display; Windows runners have no WSL distro, so skip.
+      - name: Smoke test the packaged app
+        if: matrix.artifact != 'windows'
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ "${{ matrix.artifact }}" = macos ]; then
+            # The runner is Apple Silicon: smoke-test the arm64 app (the x64 one would need Rosetta).
+            app=$(ls -d release/mac-arm64/TerminallyLLM.app 2>/dev/null || ls -d release/mac*/TerminallyLLM.app | head -1); bin="$app/Contents/MacOS/TerminallyLLM"
+            ( timeout 120 "$bin" --smoketest || true )
+          else
+            sudo apt-get install -y -qq xvfb >/dev/null
+            ( timeout 120 xvfb-run -a release/linux-unpacked/terminallyllm --smoketest --no-sandbox || true )
+          fi
+          f="$(node -p "require('os').tmpdir()")/TerminallyLLM-smoketest/out/smoke.json"
+          [ -f "$f" ] || { echo "::error::the packaged app didn't write $f (did it start?)"; exit 1; }
+          cat "$f"
+          node -e 'const r=require(process.argv[1]); if(!r.ok){console.log("::error::smoke test failed: "+JSON.stringify(r)); process.exit(1)}' "$f"
       - name: Publish to the moving `latest` release
         shell: bash
         env:
