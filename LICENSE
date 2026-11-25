@@ -1,0 +1,21 @@
+TerminallyLLM
+Copyright (c) 2026 Jérémie Pineau. All rights reserved.
+
+This software and its source code are proprietary. No licence is granted to copy, modify,
+merge, publish, distribute, sublicense or sell copies of the software or its source code,
+in whole or in part, except with the copyright holder's prior written permission.
+
+Permission is granted to download the released installers from the official releases
+repository (github.com/JeremiePineau/terminallyllm-releases) and to install and use them,
+unmodified, for their intended purpose, including within an organization that has approved
+their use. This permission may be withdrawn for future releases at any time.
+
+The software bundles third-party components (Electron, Chromium, Node.js and the npm packages
+listed in its software bill of materials), each under its own licence. Nothing here limits
+the rights those licences grant.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
