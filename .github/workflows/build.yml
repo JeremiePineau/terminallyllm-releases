@@ -184,13 +184,14 @@ jobs:
           cat "$f"
           node -e 'const r=require(process.argv[1]); if(!r.ok){console.log("::error::smoke test failed: "+JSON.stringify(r)); process.exit(1)}' "$f"
       # The software bill of materials (CycloneDX): every JavaScript package shipped in the app, with its
-      # version, from the lockfile this build installed. Once per release (on Linux); covered by the provenance.
+      # version, from the release's lockfile (--package-lock-only: every platform's native terminal module, not
+      # just this runner's). Once per release (on Linux); covered by the provenance.
       - name: Software bill of materials (SBOM)
         if: matrix.artifact == 'linux'
         run: |
           set -euo pipefail
           ver=$(node -p "require('./package.json').version")
-          npm sbom --sbom-format cyclonedx --omit dev > "release/TerminallyLLM-$ver-sbom.cdx.json"
+          npm sbom --sbom-format cyclonedx --omit dev --package-lock-only > "release/TerminallyLLM-$ver-sbom.cdx.json"
           node -e 'const s=require(process.argv[1]); if(!(s.components||[]).length){console.log("::error::empty SBOM"); process.exit(1)}; console.log(s.components.length+" components")' "$PWD/release/TerminallyLLM-$ver-sbom.cdx.json"
       # Signed build provenance (SLSA, Sigstore) for every file published: anyone can check that an
       # installer or update feed was built by this workflow, from which source commit, with

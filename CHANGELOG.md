@@ -2,6 +2,9 @@
 
 Every TerminallyLLM release, newest first. Only the newest installers are kept on the [Releases](../../releases/latest) page; these notes stay.
 
+## 0.22.2 — 2026-11-26
+- The release's software bill of materials now covers every platform: it lists the terminal module's native add-on for Windows and macOS too, not only Linux's.
+
 ## 0.22.1 — 2026-11-26
 - Each release now includes its software bill of materials (`TerminallyLLM-<version>-sbom.cdx.json`), covered by the same signed build provenance as the installers.
 - Build tooling: a known denial-of-service issue in a dependency of the installer builder is patched (it was never part of the app).
