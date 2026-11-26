@@ -30,6 +30,7 @@ Get the newest build from **[Releases](../../releases/latest)**:
 - **`TerminallyLLM-provenance-<platform>.sigstore.json`:** signed build provenance for every file.
 
 ## More
+- **What's new:** every release's notes, newest first, in [CHANGELOG.md](CHANGELOG.md). Only the newest installers are kept; the notes stay.
 - **Verifying a download:** see [VERIFY.md](VERIFY.md).
 - **Security issues:** report them privately, as described in [SECURITY.md](SECURITY.md).
 - **Licence:** proprietary; see [LICENSE](LICENSE).

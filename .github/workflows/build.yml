@@ -275,7 +275,7 @@ jobs:
           tag="v$ver"
           { echo "TerminallyLLM $ver"; echo
             if [ -n "$NOTES" ]; then printf '%s\n\n' "$NOTES"; fi
-            echo "Download the file for your platform below; see the [README](https://github.com/$THIS_REPO#download) for which one, and [VERIFY.md](https://github.com/$THIS_REPO/blob/main/VERIFY.md) to check it."
+            echo "Download the file for your platform below; see the [README](https://github.com/$THIS_REPO#download) for which one, and [VERIFY.md](https://github.com/$THIS_REPO/blob/main/VERIFY.md) to check it. Every release's notes: [CHANGELOG.md](https://github.com/$THIS_REPO/blob/main/CHANGELOG.md)."
             echo; echo "Built from source \`$SOURCE_REF\` by [this workflow run]($RUN_URL). Every file has signed build provenance."
           } > ../notes.md
           files=(*)
