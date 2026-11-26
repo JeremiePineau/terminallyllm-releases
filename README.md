@@ -28,6 +28,7 @@ Get the newest build from **[Releases](../../releases/latest)**:
 - **`latest.yml`, `latest-mac.yml`, `latest-linux.yml`:** the update feeds the app reads.
 - **`.zip` and `.blockmap` files:** the files those updates download.
 - **`TerminallyLLM-provenance-<platform>.sigstore.json`:** signed build provenance for every file.
+- **`TerminallyLLM-<version>-sbom.cdx.json`:** the software bill of materials (CycloneDX): every JavaScript package inside the app, with its version.
 
 ## More
 - **What's new:** every release's notes, newest first, in [CHANGELOG.md](CHANGELOG.md). Only the newest installers are kept; the notes stay.

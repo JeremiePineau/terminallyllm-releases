@@ -183,6 +183,15 @@ jobs:
           [ -f "$f" ] || { echo "::error::the packaged app didn't write $f (did it start?)"; exit 1; }
           cat "$f"
           node -e 'const r=require(process.argv[1]); if(!r.ok){console.log("::error::smoke test failed: "+JSON.stringify(r)); process.exit(1)}' "$f"
+      # The software bill of materials (CycloneDX): every JavaScript package shipped in the app, with its
+      # version, from the lockfile this build installed. Once per release (on Linux); covered by the provenance.
+      - name: Software bill of materials (SBOM)
+        if: matrix.artifact == 'linux'
+        run: |
+          set -euo pipefail
+          ver=$(node -p "require('./package.json').version")
+          npm sbom --sbom-format cyclonedx --omit dev > "release/TerminallyLLM-$ver-sbom.cdx.json"
+          node -e 'const s=require(process.argv[1]); if(!(s.components||[]).length){console.log("::error::empty SBOM"); process.exit(1)}; console.log(s.components.length+" components")' "$PWD/release/TerminallyLLM-$ver-sbom.cdx.json"
       # Signed build provenance (SLSA, Sigstore) for every file published: anyone can check that an
       # installer or update feed was built by this workflow, from which source commit, with
       # `gh attestation verify <file> -R JeremiePineau/terminallyllm-releases` (docs: VERIFY.md).
@@ -198,6 +207,7 @@ jobs:
             release/*.AppImage
             release/*.deb
             release/latest*.yml
+            release/*.cdx.json
       # The signed bundle also goes on the release, next to the installers (verifiers that read
       # release files, like OpenSSF Scorecard, look for it there).
       - name: Keep the provenance bundle with the release
@@ -214,7 +224,7 @@ jobs:
           case "${{ matrix.artifact }}" in
             windows) need=(release/*.exe release/*.exe.blockmap release/TerminallyLLM-provenance-windows.sigstore.json release/latest.yml) ;;
             macos)   need=(release/*.dmg release/*.zip release/*.zip.blockmap release/TerminallyLLM-provenance-macos.sigstore.json release/latest-mac.yml) ;;
-            linux)   need=(release/*.AppImage release/*.deb release/TerminallyLLM-provenance-linux.sigstore.json release/latest-linux.yml) ;;
+            linux)   need=(release/*.AppImage release/*.deb release/*-sbom.cdx.json release/TerminallyLLM-provenance-linux.sigstore.json release/latest-linux.yml) ;;
           esac
           for f in "${need[@]}"; do [ -f "$f" ] || { echo "::error::missing $f (no update metadata means no updates)"; exit 1; }; done
       # Nothing is published from here: the files go to the publish job, which releases every platform at
@@ -234,6 +244,7 @@ jobs:
             release/*.AppImage
             release/*.deb
             release/latest*.yml
+            release/*.cdx.json
             release/*.sigstore.json
 
   # One release per version (v<version>), published only once every platform built, signed and passed its

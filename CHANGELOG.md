@@ -2,6 +2,10 @@
 
 Every TerminallyLLM release, newest first. Only the newest installers are kept on the [Releases](../../releases/latest) page; these notes stay.
 
+## 0.22.1 — 2026-11-26
+- Each release now includes its software bill of materials (`TerminallyLLM-<version>-sbom.cdx.json`), covered by the same signed build provenance as the installers.
+- Build tooling: a known denial-of-service issue in a dependency of the installer builder is patched (it was never part of the app).
+
 ## 0.22.0 — 2026-11-26
 - **Three styles** (Settings › Appearance › Style): **Workspace**, the new default (big labelled icons down the left, search in the title bar, every tool listed beside the one you opened), **Command deck** (terminal-native: your terminal's font, thin lines, a status bar, tools in a side panel) and **Refined** (the classic layout). Colours still come from your theme.
 - The logo shows in the title bar again.

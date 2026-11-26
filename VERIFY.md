@@ -1,6 +1,6 @@
 # Verifying a download
 
-Every file on the release (installers and update feeds) has signed build provenance (SLSA v1). It's a Sigstore-signed statement, made by this repository's GitHub Actions workflow, of the file's SHA-256 and the workflow run that built it. That run's public page names the source version it was built from (its `ref` input, e.g. `v0.21.5`).
+Every file on the release (installers, update feeds and the SBOM) has signed build provenance (SLSA v1). It's a Sigstore-signed statement, made by this repository's GitHub Actions workflow, of the file's SHA-256 and the workflow run that built it. That run's public page names the source version it was built from (its `ref` input, e.g. `v0.21.5`).
 
 ## Any platform: build provenance
 With the GitHub CLI (`gh` 2.49 or later, signed in):
