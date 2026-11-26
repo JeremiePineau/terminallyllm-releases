@@ -2,6 +2,11 @@
 
 Every TerminallyLLM release, newest first. Only the newest installers are kept on the [Releases](../../releases/latest) page; these notes stay.
 
+## 0.22.3 — 2026-11-26
+- **Readable text on coloured buttons in every theme:** buttons and badges on the theme's accent (Update, Download, Restart and install, each window's main button), a person's colour or a context-bar segment now pick dark or light text to match, in the theme's own colours. White on Zellij's yellow-green is gone.
+- **Style picker:** three large cards in Settings › Appearance, each a miniature of its window, with a ring around the one in use.
+- **Today** is a clear button at the top of Projects, with a summary of what's waiting ("2 waiting on you · 1 follow-up due") and a count; it turns amber when something needs you.
+
 ## 0.22.2 — 2026-11-26
 - The release's software bill of materials now covers every platform: it lists the terminal module's native add-on for Windows and macOS too, not only Linux's.
 
