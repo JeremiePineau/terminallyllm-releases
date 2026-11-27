@@ -1,0 +1,16 @@
+{
+  "taken": "2026-11-27T16:51:50.119Z",
+  "appVersion": "0.22.3",
+  "commit": "b5b3789",
+  "shots": [
+    "hero",
+    "tabs",
+    "squad",
+    "today",
+    "approval",
+    "changes",
+    "style-workspace",
+    "style-deck",
+    "style-refined"
+  ]
+}

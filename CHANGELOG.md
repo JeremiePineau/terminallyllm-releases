@@ -2,6 +2,10 @@
 
 Every TerminallyLLM release, newest first. Only the newest installers are kept on the [Releases](../../releases/latest) page; these notes stay.
 
+## 0.22.4 — 2026-11-27
+- **Readable buttons in every dark theme:** buttons and fields without a colour of their own (the numbers on Today's summary tiles among them) were black on dark themes; they now use the theme's text colour, and the window tells the system it's dark or light, so scrollbars, checkboxes and dropdowns follow the theme too.
+- The releases page now shows what the app does, with screenshots.
+
 ## 0.22.3 — 2026-11-26
 - **Readable text on coloured buttons in every theme:** buttons and badges on the theme's accent (Update, Download, Restart and install, each window's main button), a person's colour or a context-bar segment now pick dark or light text to match, in the theme's own colours. White on Zellij's yellow-green is gone.
 - **Style picker:** three large cards in Settings › Appearance, each a miniature of its window, with a ring around the one in use.
