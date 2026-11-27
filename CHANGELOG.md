@@ -2,7 +2,7 @@
 
 Every TerminallyLLM release, newest first. Only the newest installers are kept on the [Releases](../../releases/latest) page; these notes stay.
 
-## 0.23.0 — 2026-11-27
+## 0.23.1 — 2026-11-27
 Security fixes from an external review (SEC-4918, phase 1).
 - **Approval cards show everything they approve.** A command that chains, redirects or is too long to show whole can't be allowed from a card: **Decide in the terminal** takes you to Claude's own prompt, which shows all of it. The permission banner and the squad needs-you strip follow the same rule.
 - **Pages wait for your click.** Pages Claude opens, publishes or writes, and sign-in pages its tools open, appear on a notice with an **Open** button. To open them straight away: Settings › Claude sessions › Open pages without asking (off by default, for everyone).
