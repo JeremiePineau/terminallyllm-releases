@@ -1,6 +1,16 @@
 # TerminallyLLM
 
-**A desktop terminal built around Claude Code.** Run many Claude sessions side by side and see what each one is doing, how full its context is and which one needs you. It runs the real `claude` CLI: your login, plugins and skills work as they do in any terminal.
+<p align="center"><img src="logo.svg" width="180" alt="TerminallyLLM logo: an IV bag with Claude's starburst dripping into a terminal prompt"></p>
+
+<p align="center"><b><i>LLMs straight into my veins.</i></b></p>
+
+**A desktop terminal built around Claude Code.** It's a multiplexer in the spirit of zellij, with a
+visual layer showing what the plain CLI can't: how full each session's context is, which one is
+waiting for you, which skills each prompt triggered, and the pages it publishes, one click away in your
+browser. It runs the real `claude` CLI: your login, plugins and skills work as they do in any terminal.
+
+<!-- release-status -->
+> **Status:** v0.22.4, released 2026-11-27. Built and tested on Windows, Linux and macOS.
 
 ![TerminallyLLM: three Claude sessions working side by side in one tab](screenshots/hero.png)
 

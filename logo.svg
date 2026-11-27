@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d1f29"/><stop offset="1" stop-color="#101118"/></linearGradient>
+    <linearGradient id="bag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4efe9"/><stop offset="1" stop-color="#dcd3ca"/></linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="none" stroke="#2c2f3d" stroke-width="8"/>
+  <!-- the IV bag, hung from a small hook -->
+  <path d="M176 58 h40 v22 h-40z" fill="#8a8f9e"/>
+  <rect x="112" y="78" width="168" height="196" rx="40" fill="url(#bag)"/>
+  <!-- Claude's starburst on the bag -->
+  <g transform="translate(196 172)" stroke="#d97757" stroke-width="15" stroke-linecap="round">
+    <line x1="0" y1="-50" x2="0" y2="50"/><line x1="-50" y1="0" x2="50" y2="0"/>
+    <line x1="-35" y1="-35" x2="35" y2="35"/><line x1="-35" y1="35" x2="35" y2="-35"/>
+  </g>
+  <!-- drip chamber and the line down into the prompt -->
+  <rect x="180" y="274" width="32" height="40" rx="8" fill="#c9c2bb"/>
+  <path d="M196 314 C196 380 236 392 280 392" fill="none" stroke="#c9c2bb" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="196" cy="296" r="7" fill="#d97757"/>
+  <!-- the terminal prompt it feeds -->
+  <path d="M300 336 l52 46 l-52 46" fill="none" stroke="#d97757" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="372" y="406" width="84" height="26" rx="13" fill="#e8e9ee"/>
+</svg>
