@@ -2,6 +2,16 @@
 
 Every TerminallyLLM release, newest first. Only the newest installers are kept on the [Releases](../../releases/latest) page; these notes stay.
 
+## 0.23.0 — 2026-11-27
+Security fixes from an external review (SEC-4918, phase 1).
+- **Approval cards show everything they approve.** A command that chains, redirects or is too long to show whole can't be allowed from a card: **Decide in the terminal** takes you to Claude's own prompt, which shows all of it. The permission banner and the squad needs-you strip follow the same rule.
+- **Pages wait for your click.** Pages Claude opens, publishes or writes, and sign-in pages its tools open, appear on a notice with an **Open** button. To open them straight away: Settings › Claude sessions › Open pages without asking (off by default, for everyone).
+- **The store only syncs with the remote you set.** If your store already has a remote, confirm it once in Settings › Store after updating.
+- Printed local pages open with Ctrl/⌘+click; a link whose text is a different address asks first, and the real address shows on hover.
+- Only Claude panes can put text on the clipboard (Settings › Terminal); shells can't.
+- Git commands the app runs ignore programs a repo's own settings would start; Library saves never write through symlinks; PR triage no longer loads the PR branch's own hooks and MCP servers.
+- Smaller fixes: file links to other machines refused, the model name quoted, the phone-alert token only over https, importing settings asks before changing phone alerts, test switches ignored in installed builds.
+
 ## 0.22.4 — 2026-11-27
 - **Readable buttons in every dark theme:** buttons and fields without a colour of their own (the numbers on Today's summary tiles among them) were black on dark themes; they now use the theme's text colour, and the window tells the system it's dark or light, so scrollbars, checkboxes and dropdowns follow the theme too.
 - The releases page now shows what the app does, with screenshots.

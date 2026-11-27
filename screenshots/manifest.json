@@ -1,7 +1,7 @@
 {
-  "taken": "2026-11-27T16:51:50.119Z",
-  "appVersion": "0.22.3",
-  "commit": "b5b3789",
+  "taken": "2026-11-27T20:06:06.105Z",
+  "appVersion": "0.22.4",
+  "commit": "5307365",
   "shots": [
     "hero",
     "tabs",
