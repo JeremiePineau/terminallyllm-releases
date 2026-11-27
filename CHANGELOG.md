@@ -2,6 +2,15 @@
 
 Every TerminallyLLM release, newest first. Only the newest installers are kept on the [Releases](../../releases/latest) page; these notes stay.
 
+## 0.23.2 — 2026-11-27
+Security fixes from an external review (SEC-4918, phase 2): the approval broker.
+- **Only plain reads run without asking** in project and squad sessions: other shell commands get a card showing exactly what would run. **Always allow** on the card learns a project's or squad's own commands (npm test, npm run build); never pushes, network writes or code run inline. Review or remove them in Settings › Projects › Allowed without asking.
+- **MCP tools:** on the servers you mapped to your tools, every tool that isn't a read waits on a card, including ones never used before and camelCase names. Read tools you allow are remembered.
+- **A lead hiring a seat, or a PM changing its project's folders, waits for your click**; the hire card shows the seat's whole brief.
+- **The app checks its own scripts** before sessions start and puts back any that a session changed, and tells you.
+
+Expect more cards at first in project and squad sessions, until your usual commands are allowed.
+
 ## 0.23.1 — 2026-11-27
 Security fixes from an external review (SEC-4918, phase 1).
 - **Approval cards show everything they approve.** A command that chains, redirects or is too long to show whole can't be allowed from a card: **Decide in the terminal** takes you to Claude's own prompt, which shows all of it. The permission banner and the squad needs-you strip follow the same rule.

@@ -10,7 +10,7 @@ waiting for you, which skills each prompt triggered, and the pages it publishes,
 browser. It runs the real `claude` CLI: your login, plugins and skills work as they do in any terminal.
 
 <!-- release-status -->
-> **Status:** v0.23.1, released 2026-11-27. Built and tested on Windows, Linux and macOS.
+> **Status:** v0.23.2, released 2026-11-27. Built and tested on Windows, Linux and macOS.
 
 ![TerminallyLLM: three Claude sessions working side by side in one tab](screenshots/hero.png)
 
