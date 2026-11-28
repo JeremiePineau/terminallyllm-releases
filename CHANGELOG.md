@@ -2,6 +2,9 @@
 
 Every TerminallyLLM release, newest first. Only the newest installers are kept on the [Releases](../../releases/latest) page; these notes stay.
 
+## 0.24.1 — 2026-11-28
+- **Spell check can be turned off** (Settings › Appearance › Spell check). It stays on by default; off, misspelled words aren't underlined and, on Windows and Linux, no spelling dictionaries are downloaded (they come from Google).
+
 ## 0.24.0 — 2026-11-28
 Security fixes from an external review (SEC-4918, phase 3): how releases are built and how updates are trusted. Every finding of that review is now fixed or accepted.
 - **Signed updates.** Every update feed is signed with TerminallyLLM's release key, and the app checks the signature before it downloads anything: an update that isn't signed with that key, or was changed after signing, is refused. This protects every update after this one (this update still arrives the old way).
