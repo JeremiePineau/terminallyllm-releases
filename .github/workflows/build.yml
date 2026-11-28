@@ -9,8 +9,11 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Commit, branch or tag in terminallyllm"
+        description: "Commit, branch or tag in terminallyllm (to publish: a vX.Y.Z tag on main)"
         default: main
+      sha:
+        description: "The commit that tag must point at (to publish; the release script sends it)"
+        default: ""
       platforms:
         description: "Installers to build"
         type: choice
@@ -38,6 +41,7 @@ jobs:
     outputs:
       matrix: ${{ steps.pick.outputs.matrix }}
       ref: ${{ steps.pick.outputs.ref }}
+      sha: ${{ steps.pick.outputs.sha }}
       publish: ${{ steps.pick.outputs.publish }}
     steps:
       - id: pick
@@ -48,6 +52,7 @@ jobs:
           IN_PLATFORMS: ${{ github.event.inputs.platforms || github.event.client_payload.platforms || 'all' }}
           IN_REF: ${{ github.event.inputs.ref || github.event.client_payload.ref || 'main' }}
           IN_PUBLISH: ${{ github.event.inputs.publish || github.event.client_payload.publish || 'true' }}
+          IN_SHA: ${{ github.event.inputs.sha || github.event.client_payload.sha || '' }}
         run: |
           want="$IN_PLATFORMS"; ref="$IN_REF"
           [[ "$ref" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$ && "$ref" != *..* ]] || { echo "::error::not a branch, tag or commit: $ref"; exit 1; }
@@ -61,7 +66,15 @@ jobs:
           # A release dispatch publishes unless it says otherwise; a manual run follows its checkbox.
           publish="$IN_PUBLISH"
           [ "$publish" = false ] || publish=true
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"; echo "ref=$ref" >> "$GITHUB_OUTPUT"; echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          # Publishing takes only a version tag and the exact commit it must point at (SEC-4918 M9); the build
+          # checks both against the source repo (the tag points there, the commit is on main). Dry runs build anything.
+          sha=""
+          if [ "$publish" = true ]; then
+            [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::to publish, ref must be a version tag (vX.Y.Z): $ref"; exit 1; }
+            [[ "$IN_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::to publish, give the tag's commit (sha, 40 hex characters)"; exit 1; }
+            sha="$IN_SHA"
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"; echo "ref=$ref" >> "$GITHUB_OUTPUT"; echo "sha=$sha" >> "$GITHUB_OUTPUT"; echo "publish=$publish" >> "$GITHUB_OUTPUT"
   build:
     needs: plan
     permissions:
@@ -76,30 +89,31 @@ jobs:
     # Notarization waits on Apple, usually a few minutes but sometimes much longer.
     timeout-minutes: ${{ matrix.artifact == 'macos' && 75 || 40 }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, pinned to a commit (a moved tag can't change what runs with the deploy key)
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0, pinned to a commit (a moved tag can't change what runs with the deploy key)
         with:
           repository: ${{ env.SOURCE_REPO }}
-          ref: ${{ needs.plan.outputs.ref }}
+          ref: ${{ needs.plan.outputs.sha || needs.plan.outputs.ref }}
+          fetch-depth: 0  # tags and main: what's published must be a tag on main (next step)
           ssh-key: ${{ secrets.SOURCE_SSH_KEY }}   # a read-only deploy key on terminallyllm (nothing else)
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4, pinned to a commit
+      - name: The commit is the release tag, on main (SEC-4918 M9)
+        if: needs.plan.outputs.publish == 'true'
+        shell: bash
+        env:
+          REF: ${{ needs.plan.outputs.ref }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [ "$(git rev-parse HEAD)" = "$SHA" ] || { echo "::error::checked out $(git rev-parse HEAD), not $SHA"; exit 1; }
+          [ "$(git rev-parse "refs/tags/$REF^{commit}")" = "$SHA" ] || { echo "::error::$REF doesn't point at $SHA"; exit 1; }
+          git merge-base --is-ancestor "$SHA" origin/main || { echo "::error::$SHA isn't on main"; exit 1; }
+          echo "$REF = $SHA, on main"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0, pinned to a commit
         with:
           node-version: 22
           cache: npm
       # npm ci installs the node-pty prebuild for THIS runner's OS (@lydell/node-pty-<os>-<arch>).
       - run: npm ci
-      # The runner is Apple Silicon, so npm ci only installed node-pty's arm64 prebuild; the x64 app
-      # needs the Intel one too. Same version as the lockfile, unpacked beside it (the loader picks by arch).
-      - name: Add node-pty's Intel prebuild (macOS)
-        if: matrix.artifact == 'macos'
-        shell: bash
-        run: |
-          set -euo pipefail
-          v=$(node -p "require('./package-lock.json').packages['node_modules/@lydell/node-pty-darwin-x64'].version")
-          d=node_modules/@lydell/node-pty-darwin-x64; mkdir -p "$d"
-          tgz=$(npm pack "@lydell/node-pty-darwin-x64@$v" --silent --pack-destination "$RUNNER_TEMP")
-          tar -xzf "$RUNNER_TEMP/$tgz" -C "$d" --strip-components=1
-          ls "$d"
       - name: Unit tests
         shell: bash
         run: |
@@ -119,54 +133,20 @@ jobs:
       - name: Package
         if: matrix.artifact != 'macos'
         run: npx electron-builder --publish never
-      # The signing secrets reach this one step only (never the Windows or Linux jobs, never other steps).
-      - name: Package, sign and notarize (macOS)
+      # macOS: no packaging or signing here (SEC-4918 M8). The compiled app goes to the signing job, which holds
+      # the Apple secrets in a protected environment and runs no install scripts, tests or build tooling.
+      - name: Hand the compiled app to the signing job (macOS)
         if: matrix.artifact == 'macos'
-        shell: bash
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_API_KEY_B64: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: |
-          set -euo pipefail
-          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_B64 APPLE_API_KEY_ID APPLE_API_ISSUER; do
-            [ -n "${!v}" ] || { echo "::error::secret for $v is missing: refusing to build an unsigned Mac app"; exit 1; }
-          done
-          key="$RUNNER_TEMP/notary-key.p8"; trap 'rm -f "$key"' EXIT
-          ( umask 077; printf '%s' "$APPLE_API_KEY_B64" | base64 --decode > "$key" )
-          export APPLE_API_KEY="$key"
-          unset APPLE_API_KEY_B64
-          npx electron-builder --publish never
-      # Never ship a Mac build that isn't Developer ID signed, notarized and stapled, with the native
-      # terminal module inside it signed too.
-      - name: Check the signature and notarization (macOS)
-        if: matrix.artifact == 'macos'
-        shell: bash
-        run: |
-          set -euo pipefail
-          for app in release/mac*/TerminallyLLM.app; do
-            echo "== $app"
-            codesign --verify --deep --strict --verbose=2 "$app"
-            info=$(codesign -dvv "$app" 2>&1)
-            grep -q '^Authority=Developer ID Application:' <<<"$info" || { echo "::error::$app is not Developer ID signed"; exit 1; }
-            grep -q 'flags=.*runtime' <<<"$info" || { echo "::error::$app lacks the hardened runtime"; exit 1; }
-            grep -E '^(Authority|TeamIdentifier|Timestamp)=' <<<"$info"
-            spctl -a -vv -t exec "$app"
-            xcrun stapler validate "$app"
-            n=0
-            while IFS= read -r f; do codesign --verify --strict "$f" || { echo "::error::unsigned native file: $f"; exit 1; }; n=$((n+1)); done \
-              < <(find "$app/Contents/Resources/app.asar.unpacked" -type f \( -name '*.node' -o -name 'spawn-helper' \))
-            [ "$n" -gt 0 ] || { echo "::error::no node-pty native files found in $app"; exit 1; }
-            echo "native files signed: $n"
-          done
-          ls release/mac/TerminallyLLM.app/Contents/Resources/app.asar.unpacked/node_modules/@lydell | grep -q darwin-x64 || { echo "::error::the x64 app has no Intel node-pty"; exit 1; }
-          ls release/*.dmg release/*.zip release/latest-mac.yml
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, pinned to a commit
+        with:
+          name: mac-dist
+          retention-days: 1
+          if-no-files-found: error
+          path: dist/
       # The packaged app must start and run a shell on the runner's OS (macOS especially: nobody
       # here owns a Mac). Linux needs a virtual display; Windows runners have no WSL distro, so skip.
       - name: Smoke test the packaged app
-        if: matrix.artifact != 'windows'
+        if: matrix.artifact == 'linux'
         shell: bash
         run: |
           set -uo pipefail
@@ -198,7 +178,7 @@ jobs:
       # `gh attestation verify <file> -R JeremiePineau/terminallyllm-releases` (docs: VERIFY.md).
       - name: Attest build provenance
         id: provenance
-        if: needs.plan.outputs.publish == 'true'
+        if: needs.plan.outputs.publish == 'true' && matrix.artifact != 'macos'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2, pinned to a commit
         with:
           subject-path: |
@@ -212,13 +192,13 @@ jobs:
       # The signed bundle also goes on the release, next to the installers (verifiers that read
       # release files, like OpenSSF Scorecard, look for it there).
       - name: Keep the provenance bundle with the release
-        if: needs.plan.outputs.publish == 'true'
+        if: needs.plan.outputs.publish == 'true' && matrix.artifact != 'macos'
         shell: bash
         env:
           BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
         run: cp "$BUNDLE" "release/TerminallyLLM-provenance-${{ matrix.artifact }}.sigstore.json"
       - name: Check this platform's release files
-        if: needs.plan.outputs.publish == 'true'
+        if: needs.plan.outputs.publish == 'true' && matrix.artifact != 'macos'
         shell: bash
         run: |
           set -uo pipefail
@@ -231,6 +211,7 @@ jobs:
       # Nothing is published from here: the files go to the publish job, which releases every platform at
       # once. A dry run keeps them a few days, so a signed Mac build can be tried before any release.
       - name: Hand the files on
+        if: matrix.artifact != 'macos'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, pinned to a commit
         with:
           name: release-${{ matrix.artifact }}
@@ -251,9 +232,150 @@ jobs:
   # One release per version (v<version>), published only once every platform built, signed and passed its
   # checks: users never see a half-uploaded release, and a stalled platform delays the release instead of
   # splitting it. Then only that release is kept: older releases and their tags are deleted.
-  publish:
+  # macOS signing and notarization, in a job of its own (SEC-4918 M8): the Apple secrets live in the protected
+  # "release" environment (only this repository's main can use it), and this job never runs a package's install
+  # scripts, the tests or the build tooling: it installs with scripts off (only Electron's own download runs),
+  # takes the compiled app from the build job, then packages, signs, notarizes and checks.
+  sign-mac:
     needs: [plan, build]
-    if: needs.plan.outputs.publish == 'true'
+    if: contains(needs.plan.outputs.matrix, 'macos')
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    runs-on: macos-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0, pinned to a commit
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: ${{ needs.plan.outputs.sha || needs.plan.outputs.ref }}
+          ssh-key: ${{ secrets.SOURCE_SSH_KEY }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0, pinned to a commit
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install without install scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          node node_modules/electron/install.js   # Electron's own download, checked against its published checksums
+      # The runner is Apple Silicon, so npm ci only installed node-pty's arm64 prebuild; the x64 app
+      # needs the Intel one too. Same version as the lockfile, unpacked beside it (the loader picks by arch).
+      - name: Add node-pty's Intel prebuild (macOS)
+        shell: bash
+        run: |
+          set -euo pipefail
+          v=$(node -p "require('./package-lock.json').packages['node_modules/@lydell/node-pty-darwin-x64'].version")
+          d=node_modules/@lydell/node-pty-darwin-x64; mkdir -p "$d"
+          tgz=$(npm pack "@lydell/node-pty-darwin-x64@$v" --silent --pack-destination "$RUNNER_TEMP")
+          # The same bytes the lockfile pinned (SEC-4918 L11): its integrity hash, checked before unpacking.
+          want=$(node -p "require('./package-lock.json').packages['node_modules/@lydell/node-pty-darwin-x64'].integrity")
+          got="sha512-$(openssl dgst -sha512 -binary "$RUNNER_TEMP/$tgz" | openssl base64 -A)"
+          [ "$got" = "$want" ] || { echo "::error::node-pty's Intel prebuild doesn't match the lockfile ($got)"; exit 1; }
+          tar -xzf "$RUNNER_TEMP/$tgz" -C "$d" --strip-components=1
+          ls "$d"
+      - name: The compiled app, from the build job
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2, pinned to a commit
+        with:
+          name: mac-dist
+          path: dist
+      # The signing secrets reach this one step only (never the Windows or Linux jobs, never other steps).
+      - name: Package, sign and notarize (macOS)
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_B64: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_B64 APPLE_API_KEY_ID APPLE_API_ISSUER; do
+            [ -n "${!v}" ] || { echo "::error::secret for $v is missing: refusing to build an unsigned Mac app"; exit 1; }
+          done
+          key="$RUNNER_TEMP/notary-key.p8"; trap 'rm -f "$key"' EXIT
+          ( umask 077; printf '%s' "$APPLE_API_KEY_B64" | base64 --decode > "$key" )
+          export APPLE_API_KEY="$key"
+          unset APPLE_API_KEY_B64
+          npx electron-builder --publish never
+      # Never ship a Mac build that isn't Developer ID signed, notarized and stapled, with the native
+      # terminal module inside it signed too.
+      - name: Check the signature and notarization (macOS)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for app in release/mac*/TerminallyLLM.app; do
+            echo "== $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            info=$(codesign -dvv "$app" 2>&1)
+            grep -q '^Authority=Developer ID Application:' <<<"$info" || { echo "::error::$app is not Developer ID signed"; exit 1; }
+            grep -q 'flags=.*runtime' <<<"$info" || { echo "::error::$app lacks the hardened runtime"; exit 1; }
+            grep -E '^(Authority|TeamIdentifier|Timestamp)=' <<<"$info"
+            spctl -a -vv -t exec "$app"
+            xcrun stapler validate "$app"
+            n=0
+            while IFS= read -r f; do codesign --verify --strict "$f" || { echo "::error::unsigned native file: $f"; exit 1; }; n=$((n+1)); done \
+              < <(find "$app/Contents/Resources/app.asar.unpacked" -type f \( -name '*.node' -o -name 'spawn-helper' \))
+            [ "$n" -gt 0 ] || { echo "::error::no node-pty native files found in $app"; exit 1; }
+            echo "native files signed: $n"
+          done
+          ls release/mac/TerminallyLLM.app/Contents/Resources/app.asar.unpacked/node_modules/@lydell | grep -q darwin-x64 || { echo "::error::the x64 app has no Intel node-pty"; exit 1; }
+          ls release/*.dmg release/*.zip release/latest-mac.yml
+      # The packaged app must start and run a shell (nobody here owns a Mac). The runner is Apple Silicon:
+      # the arm64 app (the x64 one would need Rosetta).
+      - name: Smoke test the packaged app (macOS)
+        shell: bash
+        run: |
+          set -uo pipefail
+          app=$(ls -d release/mac-arm64/TerminallyLLM.app 2>/dev/null || ls -d release/mac*/TerminallyLLM.app | head -1); bin="$app/Contents/MacOS/TerminallyLLM"
+          ( perl -e 'alarm shift; exec @ARGV' 120 "$bin" --smoketest || true )
+          f="$(node -p "require('os').tmpdir()")/TerminallyLLM-smoketest/out/smoke.json"
+          [ -f "$f" ] || { echo "::error::the packaged app didn't write $f (did it start?)"; exit 1; }
+          cat "$f"
+          node -e 'const r=require(process.argv[1]); if(!r.ok){console.log("::error::smoke test failed: "+JSON.stringify(r)); process.exit(1)}' "$f"
+      - name: Attest build provenance
+        id: provenance
+        if: needs.plan.outputs.publish == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2, pinned to a commit
+        with:
+          subject-path: |
+            release/*.dmg
+            release/*.zip
+            release/latest-mac.yml
+      - name: Keep the provenance bundle with the release
+        if: needs.plan.outputs.publish == 'true'
+        shell: bash
+        env:
+          BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: cp "$BUNDLE" release/TerminallyLLM-provenance-macos.sigstore.json
+      - name: Check the release files (macOS)
+        if: needs.plan.outputs.publish == 'true'
+        shell: bash
+        run: |
+          set -uo pipefail
+          for f in release/*.dmg release/*.zip release/*.zip.blockmap release/TerminallyLLM-provenance-macos.sigstore.json release/latest-mac.yml; do [ -f "$f" ] || { echo "::error::missing $f"; exit 1; }; done
+      - name: Hand the files on
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, pinned to a commit
+        with:
+          name: release-macos
+          retention-days: ${{ needs.plan.outputs.publish == 'true' && 1 || 3 }}
+          if-no-files-found: error
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.zip.blockmap
+            release/latest-mac.yml
+            release/*.sigstore.json
+  publish:
+    needs: [plan, build, sign-mac]
+    # Every platform built and passed (the Mac one in its signing job), and this is a publishing run.
+    if: needs.plan.outputs.publish == 'true' && needs.build.result == 'success' && needs.sign-mac.result == 'success'
+    # The feed-signing key is a secret of the protected environment (SEC-4918 H2).
+    environment: release
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -264,6 +386,21 @@ jobs:
           pattern: release-*
           path: out
           merge-multiple: true
+      # Each update feed is signed with the release key (Ed25519). The app checks the signature against the public
+      # key built into it before it downloads an update (SEC-4918 H2): write access to this repository alone can't
+      # ship one. No key, no release.
+      - name: Sign the update feeds
+        shell: bash
+        env:
+          FEED_SIGNING_KEY: ${{ secrets.FEED_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$FEED_SIGNING_KEY" ] || { echo "::error::FEED_SIGNING_KEY is missing from the release environment: refusing to publish unsigned feeds"; exit 1; }
+          cd out
+          for feed in latest.yml latest-mac.yml latest-linux.yml; do
+            node -e 'const c=require("crypto"),f=require("fs");const k=c.createPrivateKey(process.env.FEED_SIGNING_KEY);f.writeFileSync(process.argv[1]+".sig",c.sign(null,f.readFileSync(process.argv[1]),k).toString("base64")+"\n")' "$feed"
+            echo "signed $feed"
+          done
       - name: Publish this version, keep only it
         shell: bash
         env:
@@ -272,6 +409,7 @@ jobs:
           TARGET: ${{ github.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SOURCE_REF: ${{ needs.plan.outputs.ref }}
+          SOURCE_SHA: ${{ needs.plan.outputs.sha }}
           NOTES: ${{ github.event.inputs.notes || github.event.client_payload.notes || '' }}
         run: |
           set -euo pipefail
@@ -288,7 +426,7 @@ jobs:
           { echo "TerminallyLLM $ver"; echo
             if [ -n "$NOTES" ]; then printf '%s\n\n' "$NOTES"; fi
             echo "Download the file for your platform below; see the [README](https://github.com/$THIS_REPO#download) for which one, and [VERIFY.md](https://github.com/$THIS_REPO/blob/main/VERIFY.md) to check it. Every release's notes: [CHANGELOG.md](https://github.com/$THIS_REPO/blob/main/CHANGELOG.md)."
-            echo; echo "Built from source \`$SOURCE_REF\` by [this workflow run]($RUN_URL). Every file has signed build provenance."
+            echo; echo "Built from source \`$SOURCE_REF\` (commit \`$SOURCE_SHA\`, on main) by [this workflow run]($RUN_URL). Every file has signed build provenance."
           } > ../notes.md
           files=(*)
           if gh release view "$tag" -R "$THIS_REPO" >/dev/null 2>&1; then

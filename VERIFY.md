@@ -1,16 +1,17 @@
 # Verifying a download
 
-Every file on the release (installers, update feeds and the SBOM) has signed build provenance (SLSA v1). It's a Sigstore-signed statement, made by this repository's GitHub Actions workflow, of the file's SHA-256 and the workflow run that built it. That run's public page names the source version it was built from (its `ref` input, e.g. `v0.21.5`).
+Every file on the release (installers, update feeds and the SBOM) has signed build provenance (SLSA v1). It's a Sigstore-signed statement, made by this repository's GitHub Actions workflow, of the file's SHA-256 and the workflow run that built it. That run's public page names the source version it was built from: a `vX.Y.Z` tag and the exact commit it points at, which the workflow checked is on the source repo's `main` before publishing.
 
 ## Any platform: build provenance
 With the GitHub CLI (`gh` 2.49 or later, signed in):
 ```
-gh attestation verify TerminallyLLM-<version>-arm64.dmg -R JeremiePineau/terminallyllm-releases
+gh attestation verify TerminallyLLM-<version>-arm64.dmg -R JeremiePineau/terminallyllm-releases \
+  --signer-workflow JeremiePineau/terminallyllm-releases/.github/workflows/build.yml
 ```
 It checks three things:
 - the signature;
 - that the file's hash matches;
-- that the signer was `.github/workflows/build.yml` in this repository.
+- that the signer was this repository's `.github/workflows/build.yml` (`--signer-workflow` pins it: without it, any workflow in the repository would do).
 
 Add `--format json` to see the workflow run (`runDetails.metadata.invocationId`).
 
