@@ -2,6 +2,13 @@
 
 Every TerminallyLLM release, newest first. Only the newest installers are kept on the [Releases](../../releases/latest) page; these notes stay.
 
+## 0.24.0 — 2026-11-28
+Security fixes from an external review (SEC-4918, phase 3): how releases are built and how updates are trusted. Every finding of that review is now fixed or accepted.
+- **Signed updates.** Every update feed is signed with TerminallyLLM's release key, and the app checks the signature before it downloads anything: an update that isn't signed with that key, or was changed after signing, is refused. This protects every update after this one (this update still arrives the old way).
+- **Only tagged versions from the main branch are published**, at the exact commit named in the release notes.
+- **Mac signing happens apart from the build**, in a protected step that runs no build tooling or tests, and the Mac app no longer turns off the system's library validation.
+- How to check a download or a feed signature yourself: [VERIFY.md](VERIFY.md).
+
 ## 0.23.2 — 2026-11-27
 Security fixes from an external review (SEC-4918, phase 2): the approval broker.
 - **Only plain reads run without asking** in project and squad sessions: other shell commands get a card showing exactly what would run. **Always allow** on the card learns a project's or squad's own commands (npm test, npm run build); never pushes, network writes or code run inline. Review or remove them in Settings › Projects › Allowed without asking.

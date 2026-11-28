@@ -10,7 +10,7 @@ waiting for you, which skills each prompt triggered, and the pages it publishes,
 browser. It runs the real `claude` CLI: your login, plugins and skills work as they do in any terminal.
 
 <!-- release-status -->
-> **Status:** v0.23.2, released 2026-11-27. Built and tested on Windows, Linux and macOS.
+> **Status:** v0.24.0, released 2026-11-28. Built and tested on Windows, Linux and macOS.
 
 ![TerminallyLLM: three Claude sessions working side by side in one tab](screenshots/hero.png)
 
@@ -65,6 +65,7 @@ Get the newest build from **[Releases](../../releases/latest)**:
 
 **Updates:**
 - **macOS, Windows, Linux AppImage:** from inside the app (Settings › Updates & about). Nothing downloads or installs without your click.
+- **Signed updates (from 0.24.0):** every update feed is signed with TerminallyLLM's release key, and the app refuses an update whose signature doesn't check out.
 - **`.deb`:** install each new version with your package manager.
 
 **Signing:**
@@ -77,6 +78,7 @@ Get the newest build from **[Releases](../../releases/latest)**:
 
 ## The other files on the release
 - **`latest.yml`, `latest-mac.yml`, `latest-linux.yml`:** the update feeds the app reads.
+- **`latest*.yml.sig`:** each feed's signature by the release key (Ed25519), checked by the app before it downloads an update.
 - **`.zip` and `.blockmap` files:** the files those updates download.
 - **`TerminallyLLM-provenance-<platform>.sigstore.json`:** signed build provenance for every file.
 - **`TerminallyLLM-<version>-sbom.cdx.json`:** the software bill of materials (CycloneDX): every JavaScript package inside the app, with its version.

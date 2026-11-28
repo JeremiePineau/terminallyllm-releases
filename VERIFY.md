@@ -29,7 +29,19 @@ xcrun stapler validate /Applications/TerminallyLLM.app
 - **`codesign -dvv`:** the authority must be `Developer ID Application: … (LHK3JD23WG)`.
 
 ## Updates inside the app
-The app downloads an update only after you click, and checks it against the SHA-512 in the update feed (`latest.yml`, `latest-mac.yml`, `latest-linux.yml`). It never installs an older version or a pre-release. On macOS, the update must also be signed by the same Developer ID.
+The app downloads an update only after you click. From 0.24.0, it first checks that the update feed (`latest.yml`, `latest-mac.yml`, `latest-linux.yml`) is signed with TerminallyLLM's release key: its signature is the `.sig` file next to it, and the public key is built into the app. A feed that isn't signed, or that was changed after signing, is refused. Then the download is checked against the SHA-512 the signed feed lists. It never installs an older version or a pre-release. On macOS, the update must also be signed by the same Developer ID.
+
+To check a feed's signature yourself (OpenSSL 3):
+```
+cat > release-key.pem <<'KEY'
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAXSJIfPIyyNU4ZZ2UwwORagLqLoRdnhiG6MOZUppqq9E=
+-----END PUBLIC KEY-----
+KEY
+base64 -d latest.yml.sig > latest.yml.sig.bin
+openssl pkeyutl -verify -pubin -inkey release-key.pem -rawin -in latest.yml -sigfile latest.yml.sig.bin
+```
+It must print `Signature Verified Successfully`.
 
 ## Windows
-The Windows installer isn't code-signed. Verify it with the build provenance above. The SHA-512 in `latest.yml` is the one the in-app updater checks.
+The Windows installer isn't code-signed. Verify it with the build provenance above. The SHA-512 in `latest.yml` is the one the in-app updater checks, once that feed's signature checks out.
